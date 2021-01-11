@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -16,6 +17,7 @@ typedef struct node
 
 // Number of buckets in hash table
 const unsigned int N = 16777216; // 2^24
+// const unsigned int N = 64500; // 2^24
 
 unsigned int words_count = 0;
 
@@ -25,19 +27,24 @@ node *table[N];
 // Returns true if word is in dictionary, else false
 bool check(const char *word)
 {
-    char word_lower[LENGTH];
-    for (int i = 0; word[i]; i++)
+    int len = strlen(word);
+    char word_lower[len + 1];
+    for (int i = 0; word[i] != '\0'; i++)
     {
         word_lower[i] = tolower(word[i]);
-        printf("%c\n", word[i]);
     }
+    word_lower[len] = '\0';
     unsigned int index = hash(word_lower);
 
     node *n = table[index];
-
-    for (; n->next != NULL; n = n->next)
+    if (n == NULL)
     {
-        if (strcmp(n->word, word_lower) == 0) {
+        return false;
+    }
+    for (; n != NULL; n = n->next)
+    {
+        if (strcmp(word_lower, n->word) == 0)
+        {
             return true;
         }
     }
@@ -53,19 +60,21 @@ unsigned int hash(const char *word)
     int p_pow = 1;
     int len = strlen(word);
 
-    for (int i; i < len; i++)
+    for (int i = 0; i < len; i++)
     {
-        hash_value = (hash_value + (word[i] - 'a' + 1) * p_pow) % N;
-        p_pow = (p_pow * p) % N;
+        if (isalpha(word[i]))
+        {
+            hash_value = (hash_value + (word[i] - 'a' + 1) * p_pow) % N;
+            p_pow = (p_pow * p) % N;
+        }
     }
     return hash_value;
 }
-// return (unsigned int)tolower(word[0]) - 97;
 
 // Loads dictionary into memory, returning true if successful, else false
 bool load(const char *dictionary)
 {
-    char word[LENGTH];
+    char word[LENGTH + 1];
     node *n = NULL;
     unsigned int index;
     // Open dictionary file
@@ -75,7 +84,7 @@ bool load(const char *dictionary)
         printf("Unable to open dictionary file\n");
         return false;
     }
-    while (fscanf(fdic, "%s", word))
+    while (fscanf(fdic, "%s", word) != EOF)
     {
         n = malloc(sizeof(node));
         if (n == NULL)
@@ -90,10 +99,8 @@ bool load(const char *dictionary)
         // Set root node to point at new node
         table[index] = n;
         words_count += 1;
-        // TODO: Check
-        printf("%ui", index);
     }
-
+    fclose(fdic);
     return true;
 }
 
@@ -105,15 +112,18 @@ unsigned int size(void)
 
 bool free_node(node *n)
 {
-    printf("%s\n", n->word);
     // If we found last node, free it
-    if (n->next == NULL)
+    if (n == NULL)
+    {
+        return true;
+    }
+    else if (n->next == NULL)
     {
         free(n);
         return true;
     }
     // Free child nodes and check everything is ok
-    if (!free_node(n->next))
+    else if (!free_node(n->next))
     {
         return false;
     }
@@ -126,15 +136,12 @@ bool free_node(node *n)
 bool unload(void)
 {
     node *n;
-    for (unsigned int i = 0; i < N; i++)
+    for (unsigned int i = 0; i <= N; i++)
     {
-        printf("INDEX: %ui", i);
-        free_node(table[i]);
-        // for (n = table[i]; n->next != NULL; n = n->next)
-        // {
-
-        // }
+        if (free_node(table[i]) != true)
+        {
+            return false;
+        }
     }
-    words_count = 0;
-    return false;
+    return true;
 }
